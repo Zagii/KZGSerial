@@ -5,10 +5,31 @@ Library for Serial
 #include "Arduino.h"
 #include "KZGSerial.h"
 
-void KZGSerial::deb(char* str)
+void KZGSerial::deb(char* str,char str2)
 {
 	#ifdef KZGSerial_DEBUGFLAG
-		Serial.println(str);
+		Serial.print(str);Serial.print("= ");
+		Serial.println(str2);
+	#endif
+}
+void KZGSerial::deb(char* str,char *str2)
+{
+	#ifdef KZGSerial_DEBUGFLAG
+		Serial.print(str);Serial.print("= ");
+		Serial.println(str2);
+	#endif
+}
+void KZGSerial::deb(char* str,uint8_t str2)
+{
+	#ifdef KZGSerial_DEBUGFLAG
+		Serial.print(str);Serial.print("= ");
+		Serial.println(str2);
+	#endif
+}
+void KZGSerial::deb(char *c)
+{
+	#ifdef KZGSerial_DEBUGFLAG
+		Serial.println(c);
 	#endif
 }
 void KZGSerial::deb(char c)
@@ -50,27 +71,28 @@ void KZGSerial::loop()
 	if(_serial->available()>0)
 	{
 		char c=_serial->read();
-//Serial.print("_index=");Serial.print(_index);
-	//	Serial.print(", nowy znak=");Serial.println(c);
+		Serial.print("_index=");Serial.print(_index);
+		Serial.print(", nowy znak=");Serial.println(c);
+		_index++;
 		if(c=='<') 
 		{
 			resetData();
 			_mode=KZGSerialMODE_START;
-			deb("Loop - Bledny znak poczatku");
+			deb("                    Loop - Nowy znak poczatku");
 			
 			return;
 		}
-		_index++;
+		
 		if(_index>MAX_TOPIC_LENGTH + MAX_MSG_LENGTH+2) //plus 2 bo zakończenie > oraz crc
 		{
 			resetData();
-			deb("Loop - za długi komunikat");
+			deb("                    Loop - za długi komunikat");
 			return;
 		}
 		switch(_mode)
 		{
 			case KZGSerialMODE_PRZED:
-				deb("Loop - KZGSerialMODE_PRZED nieistotne znaki");
+				deb("                 Loop - KZGSerialMODE_PRZED nieistotne znaki");
 				deb(c);
 			break;
 			case KZGSerialMODE_START:
@@ -81,17 +103,16 @@ void KZGSerial::loop()
 				else
 				{
 					deb("modeStart");
-					if(!isDigit(c)||_index>3)
+					if(!isDigit(c)||_index>5)
 					{
 						resetData();
-						deb("Loop - KZGSerialMODE_START - blad dlugosci komunikatu");
+						deb("           Loop - KZGSerialMODE_START - blad dlugosci komunikatu");
 						return;
 					}else
 					{
 						uint8_t n=(int)c-'0';
 						_allLen=_allLen*10+n;
-						deb("znak len, _allLen=");
-						deb(_allLen);
+						deb("znak len, _allLen=",_allLen);
 					}
 				}
 			break;
@@ -105,14 +126,13 @@ void KZGSerial::loop()
 				{
 					if(!isPrintable(c)||_index>5||_index>_allLen)
 					{
-						deb("Loop - KZGSerialMODE_TYPE - błąd odczytu typu");
+						deb("             Loop - KZGSerialMODE_TYPE - błąd odczytu typu");
 						resetData();
 						return;
 					}else
 					{
 						_type=c;
-						deb("_type");
-						deb(_type);
+						deb("_type",_type);
 					}
 				}
 			break;
@@ -120,14 +140,14 @@ void KZGSerial::loop()
 				if(c==';')
 				{
 					_mode=KZGSerialMODE_TRESC;
-					deb("_topic=");deb(_topic);
+					deb("_topic=",_topic);
 					deb("trescMode");
 				}
 				else
 				{
 					if(!isPrintable(c)||_index>_allLen)
 					{
-						deb("Loop - KZGSerialMODE_TOPIC - blad odczytu topicu");
+						deb("                Loop - KZGSerialMODE_TOPIC - blad odczytu topicu");
 						
 						deb("index, allLen");
 						deb(_index);
@@ -146,7 +166,7 @@ void KZGSerial::loop()
 				
 					if(!isPrintable(c)||_index>_allLen)
 					{
-						deb("Loop - KZGSerialMODE_TRESC - blad odczytu treści");
+						deb("                    Loop - KZGSerialMODE_TRESC - blad odczytu treści");
 						
 						deb("index, allLen");
 						deb(_index);
@@ -161,7 +181,7 @@ void KZGSerial::loop()
 						if(_index==_allLen)
 						{		
 							_mode=KZGSerialMODE_KONIEC;
-							deb("_msg=");deb(_msg);
+							deb("_msg=",_msg);
 							deb("koniecMode");
 						}
 					}
@@ -174,7 +194,7 @@ void KZGSerial::loop()
 				}
 				else
 				{
-					deb("Loop - KZGSerialMODE_KONIEC - blad konca komunikatu");
+					deb("                         Loop - KZGSerialMODE_KONIEC - blad konca komunikatu");
 					resetData();
 				}
 			break;
@@ -191,21 +211,21 @@ void KZGSerial::loop()
 				//  13 - 12 - 1=0 => _crcStr[0]=B
 				//  14 - 12 - 1=1 => _crcStr[1]=D
 				//  15 - 12 - 1=2 => _crcStr[1]=D
-				if(_index-_allLen-1<3) 
+				if(_index-_allLen-1<4) 
 				{
 						uint8_t n=(int)c-'0';
-						_crcint=_crcInt*10+n;
-						
-						if(_index-_allLen==3)
+						_crcInt=_crcInt*10+n;
+						deb("CRC ",_crcInt);
+						if(_index-_allLen==5)
 						{
 							
-							if(checkCRC(_crcItr))
+							if(checkCRC(_crcInt))
 							{
 								_isMsgWaiting=true;
 							}
 							else
 							{
-								deb("Loop - KZGSerialMODE_CRC - blad CRC");
+								deb("                     Loop - KZGSerialMODE_CRC - blad CRC");
 							}
 						_mode=KZGSerialMODE_PRZED;
 						}
@@ -232,7 +252,7 @@ bool KZGSerial::checkCRC(char* crc)
 bool KZGSerial::checkCRC(uint8_t crc)
 {
 	uint8_t c1= calcCRC();
-	tmp[30];
+	char tmp[30];
 	sprintf(tmp,"checkCRC R=%03d, C=%03d",crc,c1);
 	deb("deb");
 
@@ -265,7 +285,7 @@ uint8_t KZGSerial::calcCRC()
 	createMsg(str,_type,_topic,_msg);
 	uint8_t crc=  crc8(str,strlen(str));
 	char tmp[30];
-	sprintf(tmp,"calcCRC  C=%02x",crc);
+	sprintf(tmp,"calcCRC  C=%03d",crc);
 	deb(tmp);
 	return crc;
 }

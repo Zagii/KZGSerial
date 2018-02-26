@@ -37,8 +37,11 @@ class KZGSerial
 {
 	private:
 		
-		void deb(char *);
+		void deb(char *,char);
+		void deb(char *,char*);
+		void deb(char *,uint8_t);
 		void deb(char );
+		void deb(char *);
 		void deb(int );
 		uint8_t _mode;
 		Stream *_serial;
